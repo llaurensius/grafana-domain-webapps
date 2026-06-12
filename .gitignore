@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Node & React
+node_modules/
+dist/
+build/
+.npm/
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Monitoring & Data Volumes (Do not push data)
+grafana_data/
+prometheus_data/
+postgres_data/
+
+# Environment Variables
+.env
+*.env
+.env.local
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project specific raw data and scripts output
+docs/data/
+siap_import.csv
+daftar_domain_mentah.txt

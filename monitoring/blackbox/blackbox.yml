@@ -1,0 +1,12 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: []  # Secara default mengharapkan 2xx
+      method: GET
+      no_follow_redirects: false
+      preferred_ip_protocol: "ip4" # Memaksa IPv4, berguna di environment Docker
+      tls_config:
+        insecure_skip_verify: true # Mengabaikan SSL certificate yang expired/tidak valid
