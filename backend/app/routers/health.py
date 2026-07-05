@@ -14,3 +14,5 @@ async def health_check():
         "prometheus_connection": prom_health["status"],
         "prometheus_has_data": prom_health["has_data"]
     }
+
+

@@ -1,4 +1,4 @@
 - labels:
     job: blackbox_dynamic
   targets:
-  - https://google.com
+  - https://facebook.com

@@ -8,7 +8,18 @@ from app.config import settings
 # Buat tabel di PostgreSQL (untuk dev)
 Base.metadata.create_all(bind=engine)
 
+# Auto-migration untuk kolom baru (karena create_all tidak alter tabel yang sudah ada)
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS recovery_started_at TIMESTAMP WITH TIME ZONE;"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uix_one_open_incident_per_domain ON incidents (domain_id) WHERE status = 'ACTIVE' OR status = 'RECOVERY_PENDING';"))
+        conn.commit()
+except Exception as e:
+    print(f"Auto-migration warning: {e}")
+
 app = FastAPI(title=settings.PROJECT_NAME)
+
 
 import os
 origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
