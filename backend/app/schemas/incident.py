@@ -2,20 +2,24 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+
 class IncidentBase(BaseModel):
     domain_id: int
     status: str
     qualifies_as_downtime: bool
     error_type: Optional[str] = None
 
+
 class IncidentCreate(IncidentBase):
     start_time: Optional[datetime] = None
 
+
 class IncidentUpdate(BaseModel):
-    end_time: Optional[datetime] = None
-    duration_seconds: Optional[int] = None
-    status: Optional[str] = None
-    qualifies_as_downtime: Optional[bool] = None
+    end_time:              Optional[datetime] = None
+    duration_seconds:      Optional[int]      = None
+    status:                Optional[str]      = None
+    qualifies_as_downtime: Optional[bool]     = None
+    recovery_started_at:   Optional[datetime] = None  # Untuk transisi RECOVERY_PENDING
 
 class IncidentResponse(IncidentBase):
     id: int

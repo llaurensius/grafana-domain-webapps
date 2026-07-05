@@ -7,7 +7,15 @@ from app.config import settings
 class PrometheusService:
     @staticmethod
     def sync_targets_file(active_domains: List[str]):
-        """Writes active domains to the shared yaml file for Prometheus file_sd_configs"""
+        """
+        Writes active domains to the shared yaml file for Prometheus file_sd_configs.
+
+        Menggunakan pola "Atomic Write":
+        1. Tulis ke file .tmp sementara di folder yang sama (satu filesystem).
+        2. Flush buffer ke kernel, lalu fsync ke disk agar data benar-benar tersimpan.
+        3. os.replace() bersifat atomik di Linux/POSIX — Prometheus tidak pernah bisa
+           membaca file dalam kondisi setengah-tertulis (korup/kosong).
+        """
         targets_data = []
         if active_domains:
             targets_data.append({
@@ -16,12 +24,25 @@ class PrometheusService:
                     "job": "blackbox_dynamic"
                 }
             })
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(settings.TARGETS_FILE_PATH), exist_ok=True)
-        
-        with open(settings.TARGETS_FILE_PATH, 'w') as f:
-            yaml.dump(targets_data, f)
+
+        target_path = settings.TARGETS_FILE_PATH
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+        # Tulis ke file temporary di folder yang SAMA agar os.replace() atomik
+        temp_path = f"{target_path}.tmp"
+        try:
+            with open(temp_path, 'w') as f:
+                yaml.dump(targets_data, f)
+                f.flush()          # Pastikan buffer Python dikirim ke kernel OS
+                os.fsync(f.fileno())  # Pastikan kernel OS menyimpannya ke disk fisik
+
+            # Timpa file target utama secara atomik (operasi rename di level kernel)
+            os.replace(temp_path, target_path)
+        except Exception as e:
+            # Bersihkan file temp jika terjadi error agar tidak meninggalkan sampah
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise RuntimeError(f"Gagal melakukan atomic write ke {target_path}: {e}") from e
             
     _cached_metrics = None
     _cached_time = 0

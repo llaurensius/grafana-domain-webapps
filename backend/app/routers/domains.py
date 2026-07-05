@@ -35,6 +35,19 @@ def update_domain(domain_id: int, domain: DomainUpdate, db: Session = Depends(ge
     return updated
 
 
+@router.delete("/wipe-all")
+def wipe_all_database(db: Session = Depends(get_db)):
+    """Menghapus seluruh data domain dari database (operasi destruktif)."""
+    from sqlalchemy import text
+    try:
+        db.execute(text("TRUNCATE TABLE domains RESTART IDENTITY CASCADE"))
+        db.commit()
+        return {"status": "ok", "message": "Database wiped successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/{domain_id}")
 def delete_domain(domain_id: int, db: Session = Depends(get_db)):
     """Menghapus domain berdasarkan ID."""
@@ -118,16 +131,4 @@ def export_domains(db: Session = Depends(get_db)):
     response.headers["Content-Disposition"] = "attachment; filename=domains.csv"
     return response
 
-
-@router.delete("/wipe-all")
-def wipe_all_database(db: Session = Depends(get_db)):
-    """Menghapus seluruh data domain dari database (operasi destruktif)."""
-    from sqlalchemy import text
-    try:
-        db.execute(text("TRUNCATE TABLE domains RESTART IDENTITY CASCADE"))
-        db.commit()
-        return {"status": "ok", "message": "Database wiped successfully"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
 

@@ -8,10 +8,21 @@ class IncidentRepository:
         self.db = db
 
     def get_active_incident(self, domain_id: int) -> Optional[Incident]:
+        """Ambil satu insiden terbuka (ACTIVE atau RECOVERY_PENDING) untuk domain tertentu."""
         return self.db.query(Incident).filter(
             Incident.domain_id == domain_id,
-            Incident.status == "ACTIVE"
+            Incident.status.in_(["ACTIVE", "RECOVERY_PENDING"])
         ).first()
+
+    def get_all_open(self) -> list[Incident]:
+        """
+        Ambil SEMUA insiden terbuka (ACTIVE + RECOVERY_PENDING) dalam satu query bulk.
+        Digunakan oleh IncidentService.process_metrics() untuk menghindari N+1 query.
+        """
+        return self.db.query(Incident).filter(
+            Incident.status.in_(["ACTIVE", "RECOVERY_PENDING"])
+        ).all()
+
 
     def get_by_domain(self, domain_id: int):
         return self.db.query(Incident).filter(Incident.domain_id == domain_id).all()

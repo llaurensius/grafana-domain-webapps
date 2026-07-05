@@ -29,14 +29,47 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     import os
+    import logging
     from app.config import settings
-    # Fix Docker Race Condition by creating the directory and file before Prometheus starts trying to read it
+    from app.database import SessionLocal
+    from app.repositories.domain_repo import DomainRepository
+    from app.services.prometheus_service import PrometheusService
+
+    logger = logging.getLogger("uvicorn.startup")
+
+    # Pastikan direktori /shared selalu ada sebelum apapun
     os.makedirs(os.path.dirname(settings.TARGETS_FILE_PATH), exist_ok=True)
-    if not os.path.exists(settings.TARGETS_FILE_PATH):
-        with open(settings.TARGETS_FILE_PATH, "w") as f:
-            f.write("[]")
-            
+
+    # ─── SELF-HEALING: Rebuild file target dari Database (Source of Truth) ───
+    # Jika file target hilang (volume Docker terhapus, kontainer baru) atau
+    # isinya tidak sinkron, kita tidak menulis array kosong [].
+    # Backend menjadi "sumber kebenaran" dan merekonstruksi konfigurasi Prometheus
+    # langsung dari data domain aktif yang ada di PostgreSQL.
+    db = SessionLocal()
+    try:
+        domain_repo = DomainRepository(db)
+        active_domains = domain_repo.get_active()  # Ambil semua domain aktif
+        active_urls = [d.url for d in active_domains]
+
+        PrometheusService.sync_targets_file(active_urls)
+        logger.info(
+            f"[Self-Healing] File target Prometheus dibangun ulang: "
+            f"{len(active_urls)} domain aktif ditulis ke {settings.TARGETS_FILE_PATH}"
+        )
+    except Exception as e:
+        # Jangan crash saat startup. Log error, tulis file kosong sebagai fallback.
+        logger.error(f"[Self-Healing] Gagal rebuild file target dari DB: {e}")
+        logger.warning("Melanjutkan startup dengan file target kosong sebagai fallback.")
+        try:
+            PrometheusService.sync_targets_file([])
+        except Exception:
+            pass  # Jika bahkan menulis [] pun gagal, scheduler akan mencoba lagi nanti
+    finally:
+        db.close()
+    # ─────────────────────────────────────────────────────────────────────────
+
     start_scheduler()
+
 
 # Register Routers
 app.include_router(health.router, prefix="/api/health", tags=["health"])
